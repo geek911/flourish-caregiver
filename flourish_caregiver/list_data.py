@@ -158,7 +158,7 @@ list_data = {
         ('depression', 'Depression'),
         ('pre_eclampsia', 'Pre-eclampsia'),
         ('gonorrhea', 'Gonorrhea'),
-        ('liver_Problems', 'Liver Problems'),
+        ('liver_problems', 'Liver Problems'),
         ('hepatitis_c', 'Hepatitis C'),
         ('syphillis', 'Syphillis'),
         ('asthma_requiring_steroids', 'Asthma requiring steroids'),
