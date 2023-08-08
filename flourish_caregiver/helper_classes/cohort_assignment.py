@@ -2,6 +2,8 @@ from django.apps import apps as django_apps
 from edc_base.utils import age
 
 from ..models.caregiver_child_consent import CaregiverChildConsent
+from ..models.cohort import Cohort
+from ..helper_classes.schedule_dict import child_schedule_dict
 
 
 class CohortAssignment:
@@ -23,26 +25,32 @@ class CohortAssignment:
     def child_dataset_cls(self):
         return django_apps.get_model('flourish_child.childdataset')
 
+    def get_study_child_identifier(self, subject_identifier=None):
+        consent = CaregiverChildConsent.objects.filter(
+            subject_identifier=subject_identifier).first()
+        return getattr(consent, 'study_child_identifier', None)
+
     def child_identifiers(self, cohort):
         """ Return a list of identifiers for child/infant participant's
             onschedule.
             @param cohort: cohort child/infant enrolled for.
             @return: list of enrolled child identifiers.
         """
-        identifiers = CaregiverChildConsent.objects.filter(cohort=cohort).exclude(
-            study_child_identifier='').values_list(
-            'subject_identifier', 'study_child_identifier').distinct()
-        identifiers = [child_ids[1]
-                       for child_ids in identifiers if self.child_onschedule(child_ids[0])]
-        return list(set(identifiers))
+        identifiers = Cohort.objects.filter(
+            name=cohort).values_list('subject_identifier', flat=True)
+        study_child_ids = [self.get_study_child_identifier(idx) for idx in identifiers if self.child_onschedule(idx, cohort)]
+        return study_child_ids
 
-    def child_onschedule(self, subject_identifier=None):
+    def child_onschedule(self, subject_identifier=None, cohort=None):
         """ Checks if infant/child is onschedule by querying their onschedule
             objects.
             @param subject_identifier: child subject_identifier.
         """
-        return self.subject_schedule_history_cls.objects.filter(
-            subject_identifier=subject_identifier).exists()
+        cohort_onschedules = [name_dict.get('name') for name_dict in child_schedule_dict.get(cohort).values()]
+        onschedules = self.subject_schedule_history_cls.objects.onschedules(
+            subject_identifier=subject_identifier)
+        onschedules = [onsch for onsch in onschedules if onsch.schedule_name in cohort_onschedules]
+        return bool(onschedules)
 
     def total_enrolled_HUU(self, cohort):
         """ Return total HIV unexposed uninfected children already enrolled on
@@ -91,7 +99,7 @@ class CohortAssignment:
 
     def cohort_a(self):
         """ Return cohort variable A if the child mother pair meets criteria.
-            Criteria:   0 < age <= 5 
+            Criteria:   0 < age <= 5
                         450: total HEU
                         325: total HUU
         """

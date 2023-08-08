@@ -425,7 +425,13 @@ def caregiver_child_consent_on_post_save(sender, instance, raw, created, **kwarg
                             version=instance.version,
                             identity=instance.identity)
                     except child_dummy_consent_cls.DoesNotExist:
-                        pass
+                        child_dummy_consent = child_dummy_consent_cls.objects.create(
+                            subject_identifier=instance.subject_identifier,
+                            consent_datetime=instance.consent_datetime,
+                            identity=instance.identity,
+                            dob=instance.child_dob,
+                            version=instance.version,
+                            cohort=instance.cohort)
                     else:
                         if not child_dummy_consent.cohort:
                             child_dummy_consent.cohort = instance.cohort
@@ -593,19 +599,26 @@ def tb_visit_screening_women_post_save(sender, instance, raw, created, **kwargs)
 @receiver(post_save, weak=False, sender=TbOffStudy,
           dispatch_uid='tb_offstudy_post_save')
 def tb_offstudy_post_save(sender, instance, raw, created, **kwargs):
-    tb_schedules = ['tb_2_months_schedule', 'tb_6_months_schedule']
-    tb_onschedules = ['flourish_caregiver.onschedulecohortatb2months',
-                      'flourish_caregiver.onschedulecohortatb6months']
+    if not raw:
+        tb_onschedules = {
+            'flourish_caregiver.onschedulecohortatb2months': ['a_tb1_2_months_schedule1',
+                                                              'a_tb2_2_months_schedule1',
+                                                              'a_tb3_2_months_schedule1'],
+            'flourish_caregiver.onschedulecohortatb6months': ['a_tb1_6_months_schedule1',
+                                                              'a_tb2_6_months_schedule1',
+                                                              'a_tb3_6_months_schedule1']
+        }
 
-    for tb_schedule, tb_onschedule in zip(tb_schedules, tb_onschedules):
-        _, schedule = site_visit_schedules.get_by_onschedule_model_schedule_name(
-            onschedule_model=tb_onschedule,
-            name=tb_schedule)
-        if schedule.is_onschedule(subject_identifier=instance.subject_identifier,
-                                  report_datetime=instance.report_datetime):
-            schedule.take_off_schedule(
-                subject_identifier=instance.subject_identifier,
-                schedule_name=tb_schedule)
+        for tb_onschedule, tb_schedules in tb_onschedules.items():
+            for tb_schedule in tb_schedules:
+                _, schedule = site_visit_schedules.get_by_onschedule_model_schedule_name(
+                    onschedule_model=tb_onschedule,
+                    name=tb_schedule)
+                if schedule.is_onschedule(subject_identifier=instance.subject_identifier,
+                                          report_datetime=instance.report_datetime):
+                    schedule.take_off_schedule(
+                        subject_identifier=instance.subject_identifier,
+                        schedule_name=tb_schedule)
 
 
 @receiver(post_save, weak=False, sender=CaregiverOffSchedule,
